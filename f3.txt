@@ -1,0 +1,27 @@
+3️⃣ 예상 결과물
+구분	설명
+1. DLP 서버 시스템	Node.js + Python 연동 백엔드, 텍스트/이미지 임베딩 및 비교 API 완성
+2. 웹 테스트 클라이언트	문서 및 이미지 업로드·비교 기능을 제공하는 관리자용 UI
+3. 임베딩 DB 저장소	사내 문서/이미지 임베딩 데이터 관리 DB(SQLite or MariaDB)
+4. 정책 기반 보안 판단 로직	유사도 기준에 따른 자동 차단/허용 정책
+5. PoC(Proof of Concept) 데모	실제 보안 문서 및 이미지 샘플을 이용한 탐지 시연 영상/화면 제공
+
+
+
+
+
+📁 secure-dlp/
+ ├── server/
+ │   ├── controllers/
+ │   │    ├── dlpText.controller.js   ← 기존 텍스트 DLP
+ │   │    ├── dlpImage.controller.js  ← 신규 이미지 비교
+ │   ├── db/
+ │   │    └── embeddings.sqlite        ← 이미지 벡터 저장
+ │   ├── models/
+ │   │    └── imageModel.js
+ │   └── index.js                      ← 서버 구동
+ ├── client/
+ │   ├── index.html                    ← DLP 테스트 UI
+ │   ├── dlp-text.js
+ │   └── dlp-image.js
+ └── package.json

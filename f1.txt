@@ -1,3 +1,139 @@
-a
-b
-c
+properties# ✅ 권장 (암호화)
+spring.ldap.urls=ldaps://ws.aircode.com:636
+
+# ⚠️ 가능하지만 비권장 (평문)
+spring.ldap.urls=ldap://ws.aircode.com:389
+```
+
+---
+
+## ADFS/Active Directory 구조 이해
+```
+ws.aircode.com 서버
+├── ADFS (포트 443/HTTPS)
+│   └── SAML 인증: https://ws.aircode.com/adfs/ls/
+│
+├── Active Directory (포트 389/636)
+│   ├── LDAP: ldap://ws.aircode.com:389
+│   └── LDAPS: ldaps://ws.aircode.com:636
+│
+└── 사용자 디렉토리 구조
+    dc=aircode,dc=com
+    ├── cn=Users
+    │   ├── cn=john.doe
+    │   ├── cn=jane.smith
+    │   └── cn=yourapp-service  ← 서비스 계정
+    └── ou=Employees (있을 수도)
+        ├── cn=employee1
+        └── cn=employee2
+```
+
+---
+
+## AD 담당자에게 확인할 내용 (간단)
+```
+제목: Active Directory LDAP 연동 확인
+
+안녕하세요,
+ws.aircode.com 서버에 LDAP로 연동하려고 합니다.
+
+[확인 사항]
+1. LDAP 포트 오픈 여부
+   - ldap://ws.aircode.com:389 (비보안)
+   - ldaps://ws.aircode.com:636 (보안) ← 선호
+
+2. 서비스 계정 생성 요청
+   - 용도: 사용자 인증 확인
+   - 필요 권한: 사용자 정보 읽기
+   - 제안: cn=yourapp-svc,cn=Users,dc=aircode,dc=com
+
+3. 사용자 검색 정보
+   - 사용자 위치: cn=Users?
+   - 로그인 속성: sAMAccountName? (Windows 로그인 ID)
+
+4. 네트워크
+   - 우리 서버 IP: xxx.xxx.xxx.xxx
+   - 방화벽 오픈 필요 여부
+
+감사합니다.
+
+테스트 방법
+1. LDAP 연결 테스트
+bash# 서비스 계정으로 연결 테스트
+ldapsearch -x -H ldap://ws.aircode.com:389 \
+  -D "cn=yourapp-service,cn=Users,dc=aircode,dc=com" \
+  -w "실제비밀번호" \
+  -b "dc=aircode,dc=com" \
+  "(objectClass=*)" \
+  | head -20
+
+# 성공하면 Active Directory 정보 출력
+2. 사용자 검색 테스트
+bash# Windows 로그인 ID로 사용자 찾기
+ldapsearch -x -H ldap://ws.aircode.com:389 \
+  -D "cn=yourapp-service,cn=Users,dc=aircode,dc=com" \
+  -w "실제비밀번호" \
+  -b "cn=Users,dc=aircode,dc=com" \
+  "(sAMAccountName=john.doe)"
+
+# john.doe 사용자 정보가 출력되면 성공
+```
+
+---
+
+## 로그인 시나리오
+
+### SAML 로그인
+```
+1. 사용자: https://yourapp.com/login.action 접속
+2. "AD 로그인" 클릭
+3. https://ws.aircode.com/adfs/ls/ 로 이동 (SAML)
+4. AD 계정으로 인증
+5. 다시 yourapp.com으로 돌아옴
+```
+
+### LDAP 로그인
+```
+1. 사용자: https://yourapp.com/login-ldap.action 접속
+2. Windows 로그인 ID/비밀번호 입력 (john.doe / password)
+3. 백엔드 → ldap://ws.aircode.com:389 인증 확인 (LDAP)
+4. 성공하면 /dashboard.action 이동
+같은 AD 서버, 다른 프로토콜!
+
+환경 변수 설정
+bash# AD 담당자에게 받은 서비스 계정 비밀번호
+export LDAP_PASSWORD="서비스계정실제비밀번호"
+
+# IntelliJ에서 개발 시
+Run → Edit Configurations → Environment Variables
+LDAP_PASSWORD=서비스계정실제비밀번호
+```
+
+---
+
+## Active Directory 특징
+
+### sAMAccountName vs uid
+
+| 속성 | 용도 | 예시 |
+|------|------|------|
+| **sAMAccountName** | Windows 로그인 ID | `john.doe` |
+| **uid** | Unix/Linux 스타일 | `johndoe` (AD에서는 잘 안 씀) |
+| **userPrincipalName** | 이메일 형식 | `john.doe@aircode.com` |
+
+Active Directory는 주로 `sAMAccountName` 사용!
+
+---
+
+## 최종 체크리스트
+
+### ✅ 확인 사항
+```
+□ LDAP 포트 확인 (389 또는 636)
+□ Base DN: dc=aircode,dc=com 확인
+□ 서비스 계정 생성 및 비밀번호 받기
+□ 사용자 위치: cn=Users 확인
+□ 검색 속성: sAMAccountName 확인
+□ 방화벽: yourapp.com → ws.aircode.com:389(또는 636) 오픈
+□ 환경 변수 LDAP_PASSWORD 설정
+□ LDAPS(636) 사용 권장
